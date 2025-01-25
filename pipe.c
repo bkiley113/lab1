@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	execlp(argv[1], argv[1], argv[2]);
+	execlp(argv[1], argv[1], argv[2], (char *)NULL);
 	perror("execlp");
 	return 1;
 }
