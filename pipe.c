@@ -10,12 +10,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: %s  <command>\n", argv[0]);
 		return 1;
 	}
-	if(argc > 2){
-		fprintf(stdout, "I haven't figured this out yet lol");
-		return 1;
-	}
 
-	execlp(argv[1], argv[1], NULL);
+	execlp(argv[1], argv[1], argv[2]);
 	perror("execlp");
 	return 1;
 }
