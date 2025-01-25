@@ -6,6 +6,12 @@
 
 int main(int argc, char *argv[])
 {
-	// TODO: it's all yours
-	return 0;
+	if(argc < 2){
+		fprintf(stderr, "Usage: %s  <command>\n", argv[0]);
+		return 1;
+	}
+
+	execlp(argv[1], argv[1], NULL);
+	perror("execlp");
+	return 1;
 }
