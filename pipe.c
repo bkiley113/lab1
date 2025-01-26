@@ -32,7 +32,10 @@ int main(int argc, char *argv[])
 		//we want child process to run command so close read end of pipe
 		close(pipefd[0]);
 		//any stdout of the process redirected to write end of pipe
-		dup2(pipefd[1], STDOUT_FILENO);
+		if(dup2(pipefd[1], STDOUT_FILENO) < 0){
+			perror("dup2");
+			exit(1);
+		}
 		//now STDOUT points to the write end of pipe, we can close it to avoid memory leak
 		close(pipefd[1]);
 
@@ -53,15 +56,22 @@ int main(int argc, char *argv[])
 	else{
 		close(pipefd[1]);
 
-		char buffer[1024];
-		ssize_t nbytes;
-
-		while((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0){
-			buffer[nbytes] = '/0';
-			printf("stdout from child given to parent is: \n%s", buffer);
+		//use dup2 to redirect read end of pipe (child stdout) to parent stdin
+		if(dup2(pipefd[0], STDIN_FILENO) < 0){
+			perror("dup2");
+			exit(1);
 		}
-
 		close(pipefd[0]);
+		//initialize a buffer to read parent stdin from pipe into
+		char buffer[1024];
+
+		prinf("Parent is reading child's stdout to its stdin via pipe: \n");
+		
+		//read from stdin into buffer, while it is not NULL we can print it!
+		while(fgets(buffer, sizeof(buffer), stdin) != NULL){
+			//printf directly to stdout of parent process
+			printf("%s", buffer);
+		}
 
 		wait(NULL);
 	}
