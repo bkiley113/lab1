@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		//initialize a buffer to read parent stdin from pipe into
 		char buffer[1024];
 
-		prinf("Parent is reading child's stdout to its stdin via pipe: \n");
+		printf("Parent is reading child's stdout to its stdin via pipe: \n");
 		
 		//read from stdin into buffer, while it is not NULL we can print it!
 		while(fgets(buffer, sizeof(buffer), stdin) != NULL){
