@@ -11,7 +11,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	execlp(argv[1], argv[1], argv[2], (char *)NULL);
+	char **command_args = &argv[1];
+	command_args[argc - 1] = NULL;
+
+	execlp(argv[1], command_args);
 	perror("execlp");
+
 	return 1;
 }
+
