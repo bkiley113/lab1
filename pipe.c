@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 
 		while((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0){
 			buffer[nbytes] = '/0';
-			printf("Parent received: %s", buffer);
+			printf("stdout from child given to parent is: \n%s", buffer);
 		}
 
 		close(pipefd[0]);
