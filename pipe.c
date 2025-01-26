@@ -14,8 +14,8 @@ int main(int argc, char *argv[])
 	char **command_args = &argv[1];
 	command_args[argc - 1] = NULL;
 
-	execlp(argv[1], command_args);
-	perror("execlp");
+	execvp(argv[1], command_args);
+	perror("execvp");
 
 	return 1;
 }
