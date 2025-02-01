@@ -9,41 +9,86 @@
 //...it is probably good practice to not make more conservative assumptions
 #define MAX_PATH_LEN 1024
 
-int is_executable(const char *cmd){
-	if(!cmd || strlen(cmd) == 0); return 0;
+// int is_executable(const char *cmd){
+// 	if(!cmd || strlen(cmd) == 0); return 0;
 
-	//if they give us a relative path
-	if(strchr(cmd, '/')){
-		return (access(cmd, X_OK) == 0);
-	}
+// 	//if they give us a relative path
+// 	if(strchr(cmd, '/')){
+// 		return (access(cmd, X_OK) == 0);
+// 	}
 
-	//now we begin our search of the PATH for executables
-	char *path_env = getenv("PATH");
+// 	//now we begin our search of the PATH for executables
+// 	char *path_env = getenv("PATH");
 	
-	//if there isnt one, say so!
-	if(!path_env || strlen(path_env) == 0) return 0;
+// 	//if there isnt one, say so!
+// 	if(!path_env || strlen(path_env) == 0) return 0;
 
-	//to safely handle out path string, make a copy
-	char path_copy[MAX_PATH_LEN];
-	strncpy(path_copy, path_env, MAX_PATH_LEN -1);
-	//null terminate it
-	path_copy[MAX_PATH_LEN - 1] = '\0';
+// 	//to safely handle out path string, make a copy
+// 	char path_copy[MAX_PATH_LEN];
+// 	strncpy(path_copy, path_env, MAX_PATH_LEN -1);
+// 	//null terminate it
+// 	path_copy[MAX_PATH_LEN - 1] = '\0';
 
-	char *saveptr;
-	char *directory = strtok_r(path_copy, ":", &saveptr);
+// 	char *saveptr;
+// 	char *directory = strtok_r(path_copy, ":", &saveptr);
 
-	char full_path[MAX_PATH_LEN];
+// 	char full_path[MAX_PATH_LEN];
 
-	while(directory){
-		snprintf(full_path, sizeof(full_path), "%s/%s", directory, cmd);
-		if (access(full_path, X_OK) ==0){
-			return 1;
-		}
-		directory = strtok_r(NULL, ":", &saveptr);
-	}
+// 	while(directory){
+// 		snprintf(full_path, sizeof(full_path), "%s/%s", directory, cmd);
+// 		if (access(full_path, X_OK) ==0){
+// 			return 1;
+// 		}
+// 		directory = strtok_r(NULL, ":", &saveptr);
+// 	}
 
-	return 0;
+// 	return 0;
 
+// }
+
+int is_executable(const char *cmd) {
+    if (!cmd || strlen(cmd) == 0) return 0;
+
+    // If the command contains '/', check directly if it's executable
+    if (strchr(cmd, '/')) {
+        printf("Checking absolute/relative path: %s\n", cmd);
+        return (access(cmd, X_OK) == 0);
+    }
+
+    // Get the PATH variable
+    char *path_env = getenv("PATH");
+    if (!path_env || strlen(path_env) == 0) {
+        fprintf(stderr, "PATH environment variable is not set!\n");
+        return 0;
+    }
+
+    // Copy PATH to avoid modifying the original
+    char path_copy[MAX_PATH_LEN];
+    strncpy(path_copy, path_env, MAX_PATH_LEN - 1);
+    path_copy[MAX_PATH_LEN - 1] = '\0';
+
+    // Tokenize PATH
+    char *saveptr;
+    char *directory = strtok_r(path_copy, ":", &saveptr);
+
+    char full_path[MAX_PATH_LEN];
+
+    printf("Checking command: %s\n", cmd);
+    
+    while (directory) {
+        snprintf(full_path, sizeof(full_path), "%s/%s", directory, cmd);
+        printf("Trying path: %s\n", full_path); // Debug print
+
+        if (access(full_path, X_OK) == 0) {
+            printf("GOOD! Found executable: %s\n", full_path);
+            return 1;
+        }
+
+        directory = strtok_r(NULL, ":", &saveptr);
+    }
+
+    printf("BAD! Command not found: %s\n", cmd);
+    return 0;
 }
 
 // int main(int argc, char *argv[])
