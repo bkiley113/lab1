@@ -36,7 +36,7 @@ int is_executable(const char *cmd){
 
 	while(directory){
 		snprintf(full_path, sizeof(full_path), "%s/%s", directory, cmd);
-		if (access(full_path, X_OK ==0)){
+		if (access(full_path, X_OK) ==0){
 			return 1;
 		}
 		directory = strtok_r(NULL, ":", &saveptr);
