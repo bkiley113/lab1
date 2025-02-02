@@ -7,7 +7,7 @@
 
 void create_pipeline(char *commands[], int num_commands) {
     int pipefd[2 * (num_commands - 1)];
-    pid_t pid;
+    pid_t pids[num_commands];
 
     // Create pipes
     for (int i = 0; i < num_commands - 1; i++) {
@@ -19,13 +19,13 @@ void create_pipeline(char *commands[], int num_commands) {
 
     // Create child processes
     for (int i = 0; i < num_commands; i++) {
-        pid = fork();
-        if (pid < 0) {
+        pids[i] = fork();
+        if (pids[i] < 0) {
             perror("fork");
             exit(1);
         }
 
-        if (pid == 0) { // Child process
+        if (pids[i] == 0) { // Child process
             // Set up input redirection if not the first command
             if (i != 0) {
                 if (dup2(pipefd[2 * (i - 1)], STDIN_FILENO) < 0) {
@@ -47,7 +47,7 @@ void create_pipeline(char *commands[], int num_commands) {
                 close(pipefd[j]);
             }
 
-            // Execute command
+            // Parse command arguments properly
             char *cmd_args[64];
             int arg_count = 0;
             char *token = strtok(commands[i], " ");
@@ -70,7 +70,8 @@ void create_pipeline(char *commands[], int num_commands) {
 
     // Wait for all child processes to finish
     for (int i = 0; i < num_commands; i++) {
-        wait(NULL);
+        int status;
+        waitpid(pids[i], &status, 0);
     }
 }
 
