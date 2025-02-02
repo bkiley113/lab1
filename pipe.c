@@ -58,8 +58,8 @@ void create_pipeline(char *commands[], int num_commands) {
             cmd_args[arg_count] = NULL;
 
             execvp(cmd_args[0], cmd_args);
-            perror("execvp");
-            exit(1);
+            perror("execvp"); // Only reaches here if execvp fails
+            exit(127); // Exit with specific error code for command not found
         }
     }
 
@@ -68,11 +68,17 @@ void create_pipeline(char *commands[], int num_commands) {
         close(pipefd[i]);
     }
 
-    // Wait for all child processes to finish
+    // Wait for all child processes to finish & check for failures
+    int exit_status = 0;
     for (int i = 0; i < num_commands; i++) {
         int status;
         waitpid(pids[i], &status, 0);
+        if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+            exit_status = WEXITSTATUS(status); // Capture the first failing exit code
+        }
     }
+
+    exit(exit_status); // Exit with the first failed command's status
 }
 
 int main(int argc, char *argv[]) {
