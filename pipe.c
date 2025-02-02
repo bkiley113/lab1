@@ -1,159 +1,91 @@
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <string.h>
 
-#define MAX_PATH_LEN 1024
-#define MAX_COMMANDS 16
+void create_pipeline(char *commands[], int num_commands) {
+    int pipefd[2 * (num_commands - 1)];
+    pid_t pid;
 
-int is_executable(const char *cmd) {
-    if (!cmd || strlen(cmd) == 0) return 0;
-
-    if (strchr(cmd, '/')) {
-        return (access(cmd, X_OK) == 0);
-    }
-
-    char *path_env = getenv("PATH");
-    if (!path_env || strlen(path_env) == 0) {
-        return 0;
-    }
-
-    char path_copy[MAX_PATH_LEN];
-    strncpy(path_copy, path_env, MAX_PATH_LEN - 1);
-    path_copy[MAX_PATH_LEN - 1] = '\0';
-
-    char *saveptr;
-    char *directory = strtok_r(path_copy, ":", &saveptr);
-
-    char full_path[MAX_PATH_LEN];
-
-    while (directory) {
-        snprintf(full_path, sizeof(full_path), "%s/%s", directory, cmd);
-        if (access(full_path, X_OK) == 0) {
-            return 1;
-        }
-        directory = strtok_r(NULL, ":", &saveptr);
-    }
-
-    return 0;
-}
-
-char ***parse_commands(int argc, char *argv[], int *cmd_count) {
-    char ***commands = malloc(MAX_COMMANDS * sizeof(char **));
-    if (!commands) {
-        perror("malloc failure");
-        exit(1);
-    }
-
-    int cmd_index = -1;
-    int arg_index = 0;
-    for (int i = 1; i < argc; i++) {
-        if (is_executable(argv[i])) {
-            if (cmd_index >= 0) {
-                commands[cmd_index][arg_index] = NULL;
-            }
-            cmd_index++;
-            arg_index = 0;
-            commands[cmd_index] = malloc((argc - i + 1) * sizeof(char *));
-            if (!commands[cmd_index]) {
-                perror("malloc failed");
-                exit(1);
-            }
-        }
-        if (cmd_index >= 0) {
-            commands[cmd_index][arg_index++] = argv[i];
-        }
-    }
-    if (cmd_index >= 0 && arg_index > 0) {
-        commands[cmd_index][arg_index] = NULL;
-    }
-
-    *cmd_count = cmd_index + 1;
-    return commands;
-}
-
-void print_commands(char ***commands, int cmd_count) {
-    for (int i = 0; i < cmd_count; i++) {
-        printf("Command %d:", i);
-        for (int j = 0; commands[i][j] != NULL; j++) {
-            printf(" %s", commands[i][j]);
-        }
-        printf("\n");
-    }
-}
-
-void free_commands(char ***commands, int cmd_count) {
-    for (int i = 0; i < cmd_count; i++) {
-        free(commands[i]);
-    }
-    free(commands);
-}
-
-void execute_pipeline(char ***commands, int cmd_count) {
-    int pipes[cmd_count - 1][2];
-    pid_t pids[cmd_count];
-
-    for (int i = 0; i < cmd_count; i++) {
-        if (i < cmd_count - 1 && pipe(pipes[i]) == -1) {
+    // Create pipes
+    for (int i = 0; i < num_commands - 1; i++) {
+        if (pipe(pipefd + 2 * i) < 0) {
             perror("pipe");
             exit(1);
         }
+    }
 
-        pids[i] = fork();
-        if (pids[i] < 0) {
+    // Create child processes
+    for (int i = 0; i < num_commands; i++) {
+        pid = fork();
+        if (pid < 0) {
             perror("fork");
             exit(1);
         }
 
-        if (pids[i] == 0) {
-            if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO);
-            }
-            if (i < cmd_count - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO);
-            }
-
-            for (int j = 0; j < cmd_count - 1; j++) {
-                close(pipes[j][0]);
-                close(pipes[j][1]);
+        if (pid == 0) { // Child process
+            // Set up input redirection if not the first command
+            if (i != 0) {
+                if (dup2(pipefd[2 * (i - 1)], STDIN_FILENO) < 0) {
+                    perror("dup2");
+                    exit(1);
+                }
             }
 
-            execvp(commands[i][0], commands[i]);
+            // Set up output redirection if not the last command
+            if (i != num_commands - 1) {
+                if (dup2(pipefd[2 * i + 1], STDOUT_FILENO) < 0) {
+                    perror("dup2");
+                    exit(1);
+                }
+            }
+
+            // Close all pipe file descriptors
+            for (int j = 0; j < 2 * (num_commands - 1); j++) {
+                close(pipefd[j]);
+            }
+
+            // Execute command
+            char *cmd_args[64];
+            int arg_count = 0;
+            char *token = strtok(commands[i], " ");
+            while (token) {
+                cmd_args[arg_count++] = token;
+                token = strtok(NULL, " ");
+            }
+            cmd_args[arg_count] = NULL;
+
+            execvp(cmd_args[0], cmd_args);
             perror("execvp");
-            exit(EXIT_FAILURE);
+            exit(1);
         }
     }
 
-    for (int i = 0; i < cmd_count - 1; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
+    // Close all pipe file descriptors in parent process
+    for (int i = 0; i < 2 * (num_commands - 1); i++) {
+        close(pipefd[i]);
     }
 
-    for (int i = 0; i < cmd_count; i++) {
-        waitpid(pids[i], NULL, 0);
+    // Wait for all child processes to finish
+    for (int i = 0; i < num_commands; i++) {
+        wait(NULL);
     }
 }
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <commands>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <command1> <command2> ...\n", argv[0]);
         return 1;
     }
 
-    int cmd_count;
-    char ***commands = parse_commands(argc, argv, &cmd_count);
-
-    if (cmd_count == 0) {
-        fprintf(stderr, "Error: No valid executable commands found.\n");
-        free(commands);
-        return 1;
+    // Parse commands into an array
+    char *commands[argc - 1];
+    for (int i = 1; i < argc; i++) {
+        commands[i - 1] = argv[i];
     }
 
-    print_commands(commands, cmd_count);
-    execute_pipeline(commands, cmd_count);
-    free_commands(commands, cmd_count);
-
+    create_pipeline(commands, argc - 1);
     return 0;
 }
