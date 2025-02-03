@@ -64,7 +64,7 @@ void pipeline(char *commands[], int cmd_count){
 	//now that we are back in the parent process, we must address asynchronicity
 	//that is, we must implement waiting for the child processes
 	int status;
-	int ex_code;
+	int ex_code = 0;
 
 	//just like | , we want errors to propagate
 	//use WIFEXITED from sys/wait.h "queries the child termination status, determines whether the child process ended normally."
