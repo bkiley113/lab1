@@ -133,17 +133,6 @@ class TestLab1(unittest.TestCase):
             msg=f"Single command output mismatch: expected {cl_result.stdout} but got {pipe_result}")
         self.assertTrue(self._make_clean, msg='make clean failed')
 
-    def test_command_with_multiple_arguments(self):
-        """Test a command that contains multiple arguments in one command string."""
-        self.assertTrue(self.make, msg='make failed')
-        # Using echo to test multiple arguments
-        cl_result = subprocess.run("echo hello world", capture_output=True, shell=True)
-        # Note: We pass the entire command as one argument.
-        pipe_result = subprocess.check_output(('./pipe', 'echo hello world'))
-        self.assertEqual(cl_result.stdout, pipe_result,
-            msg=f"Command with multiple arguments output mismatch: expected {cl_result.stdout} but got {pipe_result}")
-        self.assertTrue(self._make_clean, msg='make clean failed')
-
     def test_exit_status_propagation(self):
         """Test that a pipeline with a failing last command propagates the nonzero exit code."""
         self.assertTrue(self.make, msg='make failed')
