@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 void create_pipeline(char *commands[], int num_commands) {
     int pipefd[num_commands - 1][2];
@@ -42,9 +43,10 @@ void create_pipeline(char *commands[], int num_commands) {
             }
 
             // Execute command
-            execlp(commands[i], commands[i], (char *)NULL);
-            perror("execlp"); // If exec fails
-            exit(127);
+            if (execlp(commands[i], commands[i], (char *)NULL) == -1){
+                perror("execlp");
+                exit(1);
+            }
         }
     }
 
@@ -56,15 +58,21 @@ void create_pipeline(char *commands[], int num_commands) {
 
     // Wait for all child processes and return last command's status
     int status;
+    int last_exit_code =0;
+
     for (int i = 0; i < num_commands; i++) {
         waitpid(pids[i], &status, 0);
+        if(WIFEXITED(status) && WEXISTSTATUS(status)!= 0){
+            last_exit_code = WEXITSTATUS(status);
+        }
     }
 }
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <command1> <command2> ...\n", argv[0]);
-        return 1;
+        errno = EINVAL;
+        perror("Invalid argument");
+        exit(errno);
     }
 
     // Pass commands to pipeline function
