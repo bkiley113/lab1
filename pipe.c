@@ -17,7 +17,7 @@ void pipeline(char *commands[], int cmd_count){
 
 	//here we will iteratively create each pipe
 	for (int i = 0; i < cmd_count; i++){
-		if(pipe(pipefd[i] < 0)){
+		if(pipe(pipefd[i]) < 0){
 			perror("pipe");
 			exit(1);
 		}
