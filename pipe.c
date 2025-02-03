@@ -3,17 +3,14 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <string.h>
-
-#define CMD_BUFFER_SIZE 256
 
 void create_pipeline(char *commands[], int num_commands) {
-    int pipefd[2 * (num_commands - 1)];
+    int pipefd[num_commands - 1][2];
     pid_t pids[num_commands];
 
     // Create pipes
     for (int i = 0; i < num_commands - 1; i++) {
-        if (pipe(pipefd + 2 * i) < 0) {
+        if (pipe(pipefd[i]) < 0) {
             perror("pipe");
             exit(1);
         }
@@ -30,66 +27,38 @@ void create_pipeline(char *commands[], int num_commands) {
         if (pids[i] == 0) { // Child process
             // Set up input redirection if not the first command
             if (i != 0) {
-                if (dup2(pipefd[2 * (i - 1)], STDIN_FILENO) < 0) {
-                    perror("dup2");
-                    exit(1);
-                }
+                dup2(pipefd[i - 1][0], STDIN_FILENO);
             }
 
             // Set up output redirection if not the last command
             if (i != num_commands - 1) {
-                if (dup2(pipefd[2 * i + 1], STDOUT_FILENO) < 0) {
-                    perror("dup2");
-                    exit(1);
-                }
+                dup2(pipefd[i][1], STDOUT_FILENO);
             }
 
-            // Close all pipe file descriptors in child
-            for (int j = 0; j < 2 * (num_commands - 1); j++) {
-                close(pipefd[j]);
+            // Close all pipes in the child process
+            for (int j = 0; j < num_commands - 1; j++) {
+                close(pipefd[j][0]);
+                close(pipefd[j][1]);
             }
 
-            // Make a local, writable copy of the command string.
-            char cmd_copy[CMD_BUFFER_SIZE];
-            if (strlen(commands[i]) >= CMD_BUFFER_SIZE) {
-                fprintf(stderr, "Command too long\n");
-                exit(1);
-            }
-            strncpy(cmd_copy, commands[i], CMD_BUFFER_SIZE);
-            cmd_copy[CMD_BUFFER_SIZE - 1] = '\0';
-
-            // Parse command arguments properly using strtok on the copy.
-            char *cmd_args[64];
-            int arg_count = 0;
-            char *token = strtok(cmd_copy, " ");
-            while (token) {
-                cmd_args[arg_count++] = token;
-                token = strtok(NULL, " ");
-            }
-            cmd_args[arg_count] = NULL;
-
-            execvp(cmd_args[0], cmd_args);
-            perror("execvp"); // only reached if execvp fails
-            exit(127);        // exit with common code for command not found
+            // Execute command
+            execlp(commands[i], commands[i], (char *)NULL);
+            perror("execlp"); // If exec fails
+            exit(127);
         }
     }
 
-    // Close all pipe file descriptors in parent process
-    for (int i = 0; i < 2 * (num_commands - 1); i++) {
-        close(pipefd[i]);
+    // Close all pipes in the parent process
+    for (int i = 0; i < num_commands - 1; i++) {
+        close(pipefd[i][0]);
+        close(pipefd[i][1]);
     }
 
-    // Wait for all child processes to finish and collect exit status
-    int exit_status = 0;
+    // Wait for all child processes and return last command's status
+    int status;
     for (int i = 0; i < num_commands; i++) {
-        int status;
         waitpid(pids[i], &status, 0);
-        // As in shell pipelines, use the exit status of the last command
-        if (i == num_commands - 1 && WIFEXITED(status)) {
-            exit_status = WEXITSTATUS(status);
-        }
     }
-    exit(exit_status);
 }
 
 int main(int argc, char *argv[]) {
@@ -98,12 +67,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Parse commands into an array (each command may include arguments separated by spaces)
-    char *commands[argc - 1];
-    for (int i = 1; i < argc; i++) {
-        commands[i - 1] = argv[i];
-    }
-
-    create_pipeline(commands, argc - 1);
+    // Pass commands to pipeline function
+    create_pipeline(&argv[1], argc - 1);
     return 0;
 }

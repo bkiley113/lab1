@@ -155,5 +155,3 @@ class TestLab1(unittest.TestCase):
             msg="An error message should be reported to standard error when a command fails.")
         self.assertTrue(self._make_clean, msg='make clean failed')
 
-if __name__ == '__main__':
-    unittest.main()
