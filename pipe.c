@@ -62,7 +62,7 @@ void create_pipeline(char *commands[], int num_commands) {
 
     for (int i = 0; i < num_commands; i++) {
         waitpid(pids[i], &status, 0);
-        if(WIFEXITED(status) && WEXISTSTATUS(status)!= 0){
+        if(WIFEXITED(status) && WEXITSTATUS(status)!= 0){
             last_exit_code = WEXITSTATUS(status);
         }
     }
